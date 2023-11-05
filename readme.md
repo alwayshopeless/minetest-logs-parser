@@ -20,14 +20,15 @@ if __name__ == '__main__':
 Parsed line output examples:
 
 Action:
-```{'timestamp': 1699117200, 'name': 'Player7', 'action': 'places node', 'meta_action': None,
-     'node': 'default:sandstonebrick', 'count': 1, 'coords': [138.0, 7.0, 632.0], 'type': None, 'logType': 'action'}
+```json
+{"timestamp": 1698474247, "name": "Player", "action": "places node", "meta_action": null, "node": "default:dirt", "count": 1, "coords": null, "type": null, "logType": "action"}
 ```
 Beowulf auth:
-```
-{'timestamp': 1698818441, 'name': 'Player', 'ip': '127.0.0.1', 'protocolVersion': '39', 'formspecVersion': '4', 'lang': 'en', 'logType': 'beowulfAuth'}
+```json
+{"timestamp": 1698471091, "name": "Player", "ip": "127.0.0.1", "protocolVersion": "40", "formspecVersion": "4", "lang": "en", "logType": "beowulfAuth"}
 ```
 Default auth:
-```
-{'timestamp': 1698818441, 'name': 'Player', 'ip': '127.0.0.1', 'logType': 'auth'}
+```json
+{"timestamp": 1698471091, "name": "Player", "ip": "127.0.0.1", "logType": "auth"}
+
 ```
