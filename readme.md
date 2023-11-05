@@ -5,7 +5,7 @@ Simple parser for Minetest logs. Parses Minetest logs to JSON.
 It only asks for player actions on the server, including authorization and events such as digs, places, moves, actives, punched etc.
 
 ## Using
-Simple example reading parsted dicts:
+Simple example reading via generator parsed dicts:
 
 ```python
 from src.Parser.MinetestLogParser import MinetestLogParser
