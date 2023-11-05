@@ -33,14 +33,15 @@ class MinetestLogParser:
             self.logFilepath = logFilepath
 
     def read(self):
-        for line in self.rawReader():
+        '''Returns generator for reading parsed output for each line.'''
+        for line in self.rawActionReader():
             parsedLine = self.commonLineHandler(line)
             if parsedLine is None:
                 continue
             yield parsedLine
-        return None
 
     def rawReader(self):
+        '''Returns generator for reading raw output for each line.'''
         with open(self.logFilepath, "r", encoding="utf-8") as file:
             for line in file:
                 line = line.strip()
@@ -48,20 +49,33 @@ class MinetestLogParser:
                     continue
                 yield line
 
-    def readAll(self):
-        logs = []
+    def rawActionReader(self):
+        '''Returns generator for reading raw output for each action line.'''
         for line in self.rawReader():
+            # first, filter logs by server action
+            # 2023-10-31 13:47:20: ACTION[Server]:
+            if not self.isServerActionLog(line):
+                continue
+            yield line
+
+    def readAll(self):
+        '''Returns list of parsed action lines'''
+        logs = []
+        for line in self.rawActionReader():
             res = self.commonLineHandler(line)
             if res is not None:
                 logs.append(res)
 
     def importToLineSeparatedJson(self, newLogFilePath):
+        '''Stores parsed actions lines like JSON-striings line per line to new file'''
         with open(newLogFilePath, 'w+', encoding='utf-8') as f:
             for parsedLine in self.read():
                 if parsedLine is not None:
                     f.write(json.dumps(parsedLine))
 
     def importToJson(self, newLogFilePath):
+        '''Stores JSON array of all actions from log.'''
+
         with open(newLogFilePath, 'w+', encoding='utf-8') as f:
             f.write("[")
             first_item = True
@@ -75,10 +89,7 @@ class MinetestLogParser:
 
     @classmethod
     def commonLineHandler(cls, line: str) -> Optional[list]:
-        # first, filter logs by server action
-        # 2023-10-31 13:47:20: ACTION[Server]:
-        if not cls.isServerActionLog(line):
-            return None
+        '''Returns parsed line as list with action type and parsed data'''
 
         line = cls.cleanActionLogString(line)
 
@@ -96,6 +107,7 @@ class MinetestLogParser:
 
     @classmethod
     def isServerActionLog(cls, line):
+        '''Checks if raw line is action log'''
         if len(line) < 29:
             return False
         if line[21] != 'A' and line[28] != 'S':
@@ -105,6 +117,8 @@ class MinetestLogParser:
 
     @classmethod
     def parseBeowulfLine(cls, line: str) -> Optional[dict]:
+        '''Parses beowulf auth log with IP, formspec, protocol, lang and name'''
+
         if line is None:
             return None
 
@@ -145,6 +159,8 @@ class MinetestLogParser:
 
     @classmethod
     def parseDefaultAuthLine(cls, line: str) -> Optional[dict]:
+        '''Parses default Minetest auth line'''
+
         if line is None:
             return None
 
@@ -171,6 +187,8 @@ class MinetestLogParser:
 
     @classmethod
     def parseActionLine(cls, line):
+        '''Parses player action line'''
+
         count = 1
         action = None
         meta_action = None
@@ -322,16 +340,10 @@ class MinetestLogParser:
             "type": type,
         }
 
-    def logReaderGenerator(self):
-        with open(self.logFilepath, "r", encoding="utf-8") as file:
-            for line in file:
-                line = line.strip()
-                if len(line) == 0:
-                    continue
-                yield line
-
     @classmethod
     def extractTimestampAndAction(cls, targetStr):
+        '''Parses date into timestamp and raw action body'''
+
         # length datetime string like 2023-10-27 14:47:35:
         if len(targetStr) < 21:
             return None
@@ -355,4 +367,5 @@ class MinetestLogParser:
 
     @classmethod
     def cleanActionLogString(cls, line: str) -> str:
+        '''Clean line from placeholder'''
         return line.replace(f': {cls.actionPlaceholder}: ', '#')
