@@ -19,7 +19,8 @@ if __name__ == '__main__':
         if parsedLog['name'] in playerNames:
             print(parsedLog)
 ```
-Parsed line output examples:
+
+## Parsed line output examples:
 
 Action:
 ```json
