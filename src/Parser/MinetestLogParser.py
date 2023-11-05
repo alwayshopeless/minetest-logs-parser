@@ -33,12 +33,27 @@ class MinetestLogParser:
             self.logFilepath = logFilepath
 
     def read(self):
+        for line in self.rawReader():
+            parsedLine = self.commonLineHandler(line)
+            if parsedLine is None:
+                continue
+            yield parsedLine
+        return None
+
+    def rawReader(self):
         with open(self.logFilepath, "r", encoding="utf-8") as file:
             for line in file:
                 line = line.strip()
                 if len(line) == 0:
                     continue
-                yield self.commonLineHandler(line)
+                yield line
+
+    def readAll(self):
+        logs = []
+        for line in self.rawReader():
+            res = self.commonLineHandler(line)
+            if res is not None:
+                logs.append(res)
 
     def importToLineSeparatedJson(self, newLogFilePath):
         with open(newLogFilePath, 'w+', encoding='utf-8') as f:
@@ -62,7 +77,7 @@ class MinetestLogParser:
     def commonLineHandler(cls, line: str) -> Optional[list]:
         # first, filter logs by server action
         # 2023-10-31 13:47:20: ACTION[Server]:
-        if line[21] != 'A' and line[28] != 'S':
+        if not cls.isServerActionLog(line):
             return None
 
         line = cls.cleanActionLogString(line)
@@ -78,6 +93,15 @@ class MinetestLogParser:
         else:
             # parse player action log string
             return buildLog(cls.parseActionLine(line), logType["action"])
+
+    @classmethod
+    def isServerActionLog(cls, line):
+        if len(line) < 29:
+            return False
+        if line[21] != 'A' and line[28] != 'S':
+            return False
+
+        return True
 
     @classmethod
     def parseBeowulfLine(cls, line: str) -> Optional[dict]:
@@ -159,7 +183,7 @@ class MinetestLogParser:
 
         lineLen = len(line)
         if lineLen < 30 or lineLen > 250:
-            print("Line so long for parse, ignore.")
+            # print("Line so long or short for parse, ignore.")
             return None
 
         res = cls.extractTimestampAndAction(line)
@@ -202,7 +226,12 @@ class MinetestLogParser:
                 typeAndNode = typeAndNode.replace('"', '')
                 [type, node] = typeAndNode.split(" ")
         elif 'activates' in rawAction:
-            [action, node] = rawAction.split(' ')
+            try:
+                [action, node] = rawAction.split(' ')
+            except Exception:
+                # print('error ocurred while parsing activates log')
+                # print(line)
+                pass
         elif 'places node' in rawAction:
             action = 'places node'
             node = findStringBetween(rawAction, 'places node ', ' at ')
