@@ -33,14 +33,15 @@ class MinetestLogParser:
             self.logFilepath = logFilepath
 
     def read(self):
-        for line in self.rawReader():
+        '''Returns generator for reading parsed output for each line.'''
+        for line in self.rawActionReader():
             parsedLine = self.commonLineHandler(line)
             if parsedLine is None:
                 continue
             yield parsedLine
-        return None
 
     def rawReader(self):
+        '''Returns generator for reading raw output for each line.'''
         with open(self.logFilepath, "r", encoding="utf-8") as file:
             for line in file:
                 line = line.strip()
@@ -48,20 +49,33 @@ class MinetestLogParser:
                     continue
                 yield line
 
-    def readAll(self):
-        logs = []
+    def rawActionReader(self):
+        '''Returns generator for reading raw output for each action line.'''
         for line in self.rawReader():
+            # first, filter logs by server action
+            # 2023-10-31 13:47:20: ACTION[Server]:
+            if not self.isServerActionLog(line):
+                continue
+            yield line
+
+    def readAll(self):
+        '''Returns list of parsed action lines'''
+        logs = []
+        for line in self.rawActionReader():
             res = self.commonLineHandler(line)
             if res is not None:
                 logs.append(res)
 
     def importToLineSeparatedJson(self, newLogFilePath):
+        '''Stores parsed actions lines like JSON-striings line per line to new file'''
         with open(newLogFilePath, 'w+', encoding='utf-8') as f:
             for parsedLine in self.read():
                 if parsedLine is not None:
                     f.write(json.dumps(parsedLine))
 
     def importToJson(self, newLogFilePath):
+        '''Stores JSON array of all actions from log.'''
+
         with open(newLogFilePath, 'w+', encoding='utf-8') as f:
             f.write("[")
             first_item = True
@@ -75,10 +89,7 @@ class MinetestLogParser:
 
     @classmethod
     def commonLineHandler(cls, line: str) -> Optional[list]:
-        # first, filter logs by server action
-        # 2023-10-31 13:47:20: ACTION[Server]:
-        if not cls.isServerActionLog(line):
-            return None
+        '''Returns parsed line as list with action type and parsed data'''
 
         line = cls.cleanActionLogString(line)
 
@@ -96,6 +107,7 @@ class MinetestLogParser:
 
     @classmethod
     def isServerActionLog(cls, line):
+        '''Checks if raw line is action log'''
         if len(line) < 29:
             return False
         if line[21] != 'A' and line[28] != 'S':
@@ -105,6 +117,8 @@ class MinetestLogParser:
 
     @classmethod
     def parseBeowulfLine(cls, line: str) -> Optional[dict]:
+        '''Parses beowulf auth log with IP, formspec, protocol, lang and name'''
+
         if line is None:
             return None
 
@@ -145,6 +159,8 @@ class MinetestLogParser:
 
     @classmethod
     def parseDefaultAuthLine(cls, line: str) -> Optional[dict]:
+        '''Parses default Minetest auth line'''
+
         if line is None:
             return None
 
@@ -171,6 +187,8 @@ class MinetestLogParser:
 
     @classmethod
     def parseActionLine(cls, line):
+        '''Parses player action line'''
+
         count = 1
         action = None
         meta_action = None
@@ -192,6 +210,14 @@ class MinetestLogParser:
             [timestamp, actionPart] = res
         else:
             return None
+        actionPart = actionPart.strip()
+        # print(actionPart)
+        restricted_chars = ["<", "[", "/"]
+        if actionPart[0] in restricted_chars or (actionPart[0] == 'S' and actionPart[6] == ':'):
+            return None
+        if actionPart[0] == 'C' and actionPart[4] == ":":
+            # ignore CHAT: string
+            return None
 
         rawAction = None
         try:
@@ -203,7 +229,15 @@ class MinetestLogParser:
         rawAction = rawAction.replace('"', '')
 
         # many shitty code for parsing actions
-        if 'punched' in rawAction:
+        # print(rawAction[0:20])
+
+        if rawAction[0] == 'd' and 'digs ' in rawAction:
+            action = 'digs'
+            node = findStringBetween(rawAction, 'digs ', ' at ')
+        elif 'places node' in rawAction:
+            action = 'places node'
+            node = findStringBetween(rawAction, 'places node ', ' at ')
+        elif rawAction[0] == 'p' and rawAction[1] != 'l' and 'punched ' in rawAction:
             action = 'punched'
             [name, other] = rawAction.split(' ', 1)
             typeAndNode = findStringBetween(rawAction, 'punched ', ' at ')
@@ -213,7 +247,27 @@ class MinetestLogParser:
             else:
                 typeAndNode = typeAndNode.replace('"', '')
                 [type, node] = typeAndNode.split(" ")
-        elif 'right-clicks' in rawAction:
+        elif rawAction[0] == 'a' and 'activates ' in rawAction:
+            try:
+                [action, node] = rawAction.split(' ')
+            except Exception:
+                # print('error ocurred while parsing activates log')
+                # print(line)
+                pass
+        elif 'crafts ' in rawAction:
+            action = 'crafts'
+            name = findStringBetween(rawAction, 'player ', ' crafts')
+            typeAndNode = findStringBetween(rawAction, 'punched ', ' at ')
+            if typeAndNode is None:
+                type = 'player'
+                node = findStringBetween(rawAction, 'player ', ' (')
+            else:
+                typeAndNode = typeAndNode.replace('"', '')
+                [type, node] = typeAndNode.split(" ")
+        elif 'uses ' in rawAction:
+            node = findStringBetween(rawAction, 'uses', ',')
+            pass
+        elif 'right-clicks ' in rawAction:
             action = 'right-clicks'
             typeAndNode = findStringBetween(rawAction, 'right-clicks ', ' at (')
             if typeAndNode is None:
@@ -225,63 +279,26 @@ class MinetestLogParser:
             else:
                 typeAndNode = typeAndNode.replace('"', '')
                 [type, node] = typeAndNode.split(" ")
-        elif 'activates' in rawAction:
-            try:
-                [action, node] = rawAction.split(' ')
-            except Exception:
-                # print('error ocurred while parsing activates log')
-                # print(line)
-                pass
-        elif 'places node' in rawAction:
-            action = 'places node'
-            node = findStringBetween(rawAction, 'places node ', ' at ')
-        elif 'digs' in rawAction:
-            action = 'digs'
-            node = findStringBetween(rawAction, 'digs ', ' at ')
-        elif 'crafts' in rawAction:
-            action = 'crafts'
-            name = findStringBetween(rawAction, 'player ', ' crafts')
-            typeAndNode = findStringBetween(rawAction, 'punched ', ' at ')
-            if typeAndNode is None:
-                type = 'player'
-                node = findStringBetween(rawAction, 'player ', ' (')
-            else:
-                typeAndNode = typeAndNode.replace('"', '')
-                [type, node] = typeAndNode.split(" ")
-        elif ' uses ' in rawAction:
-            node = findStringBetween(rawAction, 'uses', ',')
-            pass
-        else:
-            try:
-                # print(rawAction)
-                if rawAction.count(' ') > 1:
-                    [action, node, other] = rawAction.split(" ", 2)
-                    if (action == 'takes' or action == 'moves') and "chest" in other:
-                        pattern = r'takes\s+([^ ]+)' if action == 'takes' else r'moves\s+([^ ]+)'
-                        match = re.search(pattern, rawAction)
-                        if match:
-                            node = match.group(1)
-                            if action == 'moves':
-                                count = findStringBetween(rawAction, node, 'to')
-                                type = findStringBetween(rawAction, 'to ', " at")
-                            else:
-                                count = findStringBetween(rawAction, node, 'from')
-                                type = findStringBetween(rawAction, 'from ', " at")
+        elif ('takes' in rawAction) or ('moves' in rawAction):
+            [action, node, other] = rawAction.split(" ", 2)
+            if (action == 'takes' or action == 'moves') and "chest" in other:
+                pattern = r'takes\s+([^ ]+)' if action == 'takes' else r'moves\s+([^ ]+)'
+                match = re.search(pattern, rawAction)
+                if match:
+                    node = match.group(1)
+                    if action == 'moves':
+                        count = findStringBetween(rawAction, node, 'to')
+                        type = findStringBetween(rawAction, 'to ', " at")
+                    else:
+                        count = findStringBetween(rawAction, node, 'from')
+                        type = findStringBetween(rawAction, 'from ', " at")
 
-                            if count == ' ':
-                                count = 1
-                            elif count is not None:
-                                count = count.strip()
-                        else:
-                            return None
-                elif rawAction.count(' ') == 0:
-                    pass
-                elif rawAction.count(' ') == 1:
-                    [rawAction, node] = rawAction.split(" ")
-            except Exception:
-                print('Unpack error')
-                print(rawAction)
-
+                    if count == ' ':
+                        count = 1
+                    elif count is not None:
+                        count = count.strip()
+                else:
+                    return None
         coords = None
         if ' at ' in rawAction:
             rawCoords = rawAction.split(" at ", 1)[1]
@@ -322,16 +339,10 @@ class MinetestLogParser:
             "type": type,
         }
 
-    def logReaderGenerator(self):
-        with open(self.logFilepath, "r", encoding="utf-8") as file:
-            for line in file:
-                line = line.strip()
-                if len(line) == 0:
-                    continue
-                yield line
-
     @classmethod
     def extractTimestampAndAction(cls, targetStr):
+        '''Parses date into timestamp and raw action body'''
+
         # length datetime string like 2023-10-27 14:47:35:
         if len(targetStr) < 21:
             return None
@@ -355,4 +366,5 @@ class MinetestLogParser:
 
     @classmethod
     def cleanActionLogString(cls, line: str) -> str:
+        '''Clean line from placeholder'''
         return line.replace(f': {cls.actionPlaceholder}: ', '#')
