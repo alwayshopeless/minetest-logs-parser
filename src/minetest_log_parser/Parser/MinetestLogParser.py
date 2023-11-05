@@ -1,11 +1,9 @@
 import json
 import re
 from datetime import datetime
-from enum import Enum
 from typing import Optional
 
-from src.Helpers.stringHelpers import findStringBetween, extractCoords
-
+from ..Helpers.stringHelpers import extractCoords, findStringBetween
 
 def buildLog(logDict, logType):
     if logDict is None:
@@ -27,10 +25,12 @@ class MinetestLogParser:
     actionPlaceholder = 'ACTION[Server]'
     beowulfPlaceholder = '[beowulf] player'
     defaultAuthPlaceholer = 'joins game.'
+    encoding = 'utf-8'
 
-    def __init__(self, logFilepath):
+    def __init__(self, logFilepath, encoding='utf-8'):
         if logFilepath != '' and logFilepath != None:
             self.logFilepath = logFilepath
+        self.encoding = encoding
 
     def read(self):
         '''Returns generator for reading parsed output for each line.'''
@@ -42,7 +42,7 @@ class MinetestLogParser:
 
     def rawReader(self):
         '''Returns generator for reading raw output for each line.'''
-        with open(self.logFilepath, "r", encoding="utf-8") as file:
+        with open(self.logFilepath, "r", encoding=self.encoding) as file:
             for line in file:
                 line = line.strip()
                 if len(line) == 0:
@@ -68,7 +68,7 @@ class MinetestLogParser:
 
     def importToLineSeparatedJson(self, newLogFilePath):
         '''Stores parsed actions lines like JSON-striings line per line to new file'''
-        with open(newLogFilePath, 'w+', encoding='utf-8') as f:
+        with open(newLogFilePath, 'w+', encoding=self.encoding) as f:
             for parsedLine in self.read():
                 if parsedLine is not None:
                     f.write(json.dumps(parsedLine))
@@ -76,7 +76,7 @@ class MinetestLogParser:
     def importToJson(self, newLogFilePath):
         '''Stores JSON array of all actions from log.'''
 
-        with open(newLogFilePath, 'w+', encoding='utf-8') as f:
+        with open(newLogFilePath, 'w+', encoding=self.encoding) as f:
             f.write("[")
             first_item = True
             for parsedLine in self.read():
@@ -90,8 +90,6 @@ class MinetestLogParser:
     @classmethod
     def commonLineHandler(cls, line: str) -> Optional[list]:
         '''Returns parsed line as list with action type and parsed data'''
-
-        line = cls.cleanActionLogString(line)
 
         if cls.beowulfPlaceholder in line:
             # parse default anticheat authlog
@@ -118,6 +116,7 @@ class MinetestLogParser:
     @classmethod
     def parseBeowulfLine(cls, line: str) -> Optional[dict]:
         '''Parses beowulf auth log with IP, formspec, protocol, lang and name'''
+        line = cls.cleanActionLogString(line)
 
         if line is None:
             return None
@@ -160,6 +159,7 @@ class MinetestLogParser:
     @classmethod
     def parseDefaultAuthLine(cls, line: str) -> Optional[dict]:
         '''Parses default Minetest auth line'''
+        line = cls.cleanActionLogString(line)
 
         if line is None:
             return None
@@ -188,6 +188,8 @@ class MinetestLogParser:
     @classmethod
     def parseActionLine(cls, line):
         '''Parses player action line'''
+
+        line = cls.cleanActionLogString(line)
 
         count = 1
         action = None
@@ -299,6 +301,9 @@ class MinetestLogParser:
                         count = count.strip()
                 else:
                     return None
+        else:
+            return None
+
         coords = None
         if ' at ' in rawAction:
             rawCoords = rawAction.split(" at ", 1)[1]
@@ -308,17 +313,18 @@ class MinetestLogParser:
             if rawCoords.count("(") > 1:
                 coords = extractCoords(rawCoords.split(" ")[0])
             elif 'node under' in rawCoords:
-                rawCoords = extractCoords(findStringBetween(rawCoords, 'node under=', 'above'))
+                coords = extractCoords(findStringBetween(rawCoords, 'node under=', 'above'))
             elif 'nothing' in rawCoords:
                 coords = None
             elif findStringBetween(rawCoords, "(", ")") is not None:
-                coords = findStringBetween("(", ")", rawCoords)
+                coords = findStringBetween(rawCoords, "(", ")")
                 if coords is not None:
                     coords = extractCoords(coords)
                 else:
                     coords = None
             else:
                 coords = None
+
             if coords is not None and len(coords) > 3:
                 print("Error ocurred while parsing coordinates string")
                 print(line)

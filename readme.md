@@ -8,7 +8,7 @@ It only asks for player actions on the server, including authorization and event
 Simple example reading via generator parsed dicts:
 
 ```python
-from src.Parser.MinetestLogParser import MinetestLogParser
+from src.minetest_log_parser.Parser.MinetestLogParser import MinetestLogParser
 
 if __name__ == '__main__':
     input = "./debug.txt"
@@ -20,8 +20,9 @@ if __name__ == '__main__':
             print(parsedLog)
 ```
 Example for import logs to JSON:
+
 ```python
-from src.Parser.MinetestLogParser import MinetestLogParser
+from src.minetest_log_parser.Parser.MinetestLogParser import MinetestLogParser
 
 if __name__ == '__main__':
     input = "./debug.txt"
