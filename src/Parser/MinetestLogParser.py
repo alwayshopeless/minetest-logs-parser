@@ -265,9 +265,14 @@ class MinetestLogParser:
                 rawCoords = extractCoords(findStringBetween(rawCoords, 'node under=', 'above'))
             elif 'nothing' in rawCoords:
                 coords = None
+            elif findStringBetween(rawCoords, "(", ")") is not None:
+                coords = findStringBetween("(", ")", rawCoords)
+                if coords is not None:
+                    coords = extractCoords(coords)
+                else:
+                    coords = None
             else:
-                coords = extractCoords(rawCoords)
-
+                coords = None
             if coords is not None and len(coords) > 3:
                 print("Error ocurred while parsing coordinates string")
                 print(line)
