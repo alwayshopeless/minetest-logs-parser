@@ -15,7 +15,9 @@ if __name__ == '__main__':
     minetestParser = MinetestLogParser(input)
 
     for parsedLog in minetestParser.read():
-        print(parsedLog)
+        playerNames = ['littlePrettyCat', 'Melon', 'Player']
+        if parsedLog['name'] in playerNames:
+            print(parsedLog)
 ```
 Parsed line output examples:
 
