@@ -4,11 +4,17 @@ Simple parser for Minetest logs. Parses Minetest logs to JSON.
 ## Description
 It only asks for player actions on the server, including authorization and events such as digs, places, moves, actives, punched etc.
 
+## Installing
+Clone repository or use pip for install minetest-log-parser 
+```bash
+pip install minetest-log-parser
+```
+
 ## Using
 Simple example reading via generator parsed dicts:
 
 ```python
-from src.minetest_log_parser.Parser.MinetestLogParser import MinetestLogParser
+from minetest_log_parser.Parser.MinetestLogParser import MinetestLogParser
 
 if __name__ == '__main__':
     input = "./debug.txt"
@@ -22,7 +28,7 @@ if __name__ == '__main__':
 Example for import logs to JSON:
 
 ```python
-from src.minetest_log_parser.Parser.MinetestLogParser import MinetestLogParser
+from minetest_log_parser.Parser.MinetestLogParser import MinetestLogParser
 
 if __name__ == '__main__':
     input = "./debug.txt"
